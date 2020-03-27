@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from sqlite3 import connect
 from Models.track import Track
+from Models.sample import Sample
 
 worker_tablse_stmt = """
     CREATE TABLE IF NOT EXISTS worker(
@@ -54,7 +55,8 @@ def read_triplets_sample():
         with open(FULL_FILE_TRIPLETS_SAMPLE_PATH, 'r', encoding='ANSI') as file:
             for item in range(10):
                 row = file.readline().split("<SEP>")
-                print(row)
+                sample = Sample(row[0], row[1], row[2])
+                print(sample)
 
     except FileNotFoundError:
         print("Nie ma takiego pliku.")
