@@ -1,0 +1,22 @@
+{
+    "sqltools.connections": [
+        {
+            "askForPassword": true,
+            "database": "etl",
+            "dialect": "MySQL",
+            "name": "etl",
+            "port": 3306,
+            "server": "localhost",
+            "username": "admin"
+        },
+        {
+            "database": "etl",
+            "dialect": "MySQL",
+            "name": "etl",
+            "password": "admin",
+            "port": 3306,
+            "server": "localhost",
+            "username": "admin"
+        }
+    ]
+}
