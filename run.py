@@ -20,9 +20,13 @@ data_to_isert = [
 ]
 
 DB_PATH = "etl.db"
-TRACK_FILE_PATH = 'G:\\zadanie_python\\'
+FILE_PATH = 'G:\\zadanie_python\\'
+
 TRACK_FILE_NAME = 'unique_tracks.txt'
-FULL_FILE_TRACK_PATH = f'{TRACK_FILE_PATH}{TRACK_FILE_NAME}'
+TRIPLETS_SAMPLE_FILE_NAME = 'triplets_sample_20p.txt'
+
+FULL_FILE_TRACK_PATH = f'{FILE_PATH}{TRACK_FILE_NAME}'
+FULL_FILE_TRIPLETS_SAMPLE_PATH = f'{FILE_PATH}{TRIPLETS_SAMPLE_FILE_NAME}'
 
 
 def tutoria_db():
@@ -42,7 +46,20 @@ def tutoria_db():
 
 
 def main():
-    read_track_file()
+    read_triplets_sample()
+
+
+def read_triplets_sample():
+    try:
+        with open(FULL_FILE_TRIPLETS_SAMPLE_PATH, 'r', encoding='ANSI') as file:
+            for item in range(10):
+                row = file.readline().split("<SEP>")
+                print(row)
+
+    except FileNotFoundError:
+        print("Nie ma takiego pliku.")
+    except UnicodeDecodeError:
+        print("Błąd typu kodowania pliku.")
 
 
 def read_track_file():
