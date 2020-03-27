@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from sqlite3 import connect
+from Models.track import Track
 
 worker_tablse_stmt = """
     CREATE TABLE IF NOT EXISTS worker(
@@ -47,8 +48,11 @@ def main():
 def read_track_file():
     try:
         with open(FULL_FILE_TRACK_PATH, 'r', encoding='ANSI') as file:
-            for row in range(10):
-                print(file.readline().split("<SEP>"))
+            for item in range(10):
+                row = file.readline().split("<SEP>")
+                track = Track(row[0], row[1], row[2], row[3])
+                print(track)
+
     except FileNotFoundError:
         print("Nie ma takiego pliku.")
     except UnicodeDecodeError:
