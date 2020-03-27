@@ -43,39 +43,18 @@ def tutoria_db():
         #db_cursor.executemany(insert_stmt, data_to_isert)
 
         data_list = []
-        users = {}
-        with open(FULL_FILE_TRACK_PATH, 'r', encoding='ANSI') as file:
-            counter = 0
-            for couting in range(20):
-                counter += 1
-                for item in range(counter * 1000):
-                    try:
-                        row = file.readline().split("<SEP>")
-                        data_list.append((row[0], row[1], row[2]))
-                        try:
-                            if users[row[2]] > 0:
-                                users[row[2]] += 1
-                        except KeyError:
-                            users[row[2]] = 1
-                    except IndexError:
-                        break
-
-                db_cursor.executemany(
-                    'INSERT INTO track(userId, trackId, listeningDate) VALUES(?, ?, ? )', data_list)
-                print(f'{counter * 1000}')
-        # print(users)
-        highest_value = 0
-        highest_values = []
-        for key, value in users.items():
-            if value > highest_value:
-                highest_value = value
-                highest_values.append(key)
-            elif value == highest_value:
-                highest_values.append(key)
-        print(
-            f'Najczęściej odtwarzane: po {highest_value} razy, utwory {highest_values}')
-        # for entry in db_cursor.execute('SELECT count(userId=\'TRMBHGY128F934C51F\') FROM track '):
-        #    print(entry)
+        with open(FULL_FILE_TRIPLETS_SAMPLE_PATH, 'r', encoding='ANSI') as file:
+            for i, line in enumerate(file):
+                try:
+                    row = line.split("<SEP>")
+                    data_list.append((row[0], row[1], row[2]))
+                    if i % 100 == 0:
+                        db_cursor.executemany(
+                            'INSERT INTO track(userId, trackId, listeningDate) VALUES(?, ?, ?)', data_list)
+                        data_list.clear()
+                        print(f'{i}. Czyszcze pamięć.')
+                except IndexError:
+                    break
 
 
 def main():
