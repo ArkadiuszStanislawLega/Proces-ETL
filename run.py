@@ -1,8 +1,8 @@
 from argparse import ArgumentParser
 from sqlite3 import connect
 
-worker_table_stmt = """
-    CREATE TABLE IF NOT EXIST worker(
+worker_tablse_stmt = """
+    CREATE TABLE IF NOT EXISTS worker(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name VARCHAR(20),
         salary INTEGER
@@ -18,15 +18,17 @@ data_to_isert = [
     ('name6', 600)
 ]
 
+DB_PATH = "etl.db"
+
 
 def main():
-    parser = ArgumentParser(description='This is an example of sql API')
-    parser.add_argument('--path', dest='path', type=str, required=True)
+    #parser = ArgumentParser(description='This is an example of sql API')
+    #parser.add_argument('--path', dest='path', type=str, required=True)
 
-    args = parser.parse_args()
+    #args = parser.parse_args()
 
-    with connect(args.path) as db_connctor:
-        db_connctor.execute(worker_table_stmt)
+    with connect(DB_PATH) as db_connctor:
+        db_connctor.execute(worker_tablse_stmt)
 
         db_cursor = db_connctor.cursor()
         db_cursor.executemany(insert_stmt, data_to_isert)
