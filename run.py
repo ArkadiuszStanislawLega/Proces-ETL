@@ -19,9 +19,12 @@ data_to_isert = [
 ]
 
 DB_PATH = "etl.db"
+TRACK_FILE_PATH = 'G:\\zadanie_python\\'
+TRACK_FILE_NAME = 'unique_tracks.txt'
+FULL_FILE_TRACK_PATH = f'{TRACK_FILE_PATH}{TRACK_FILE_NAME}'
 
 
-def main():
+def tutoria_db():
     #parser = ArgumentParser(description='This is an example of sql API')
     #parser.add_argument('--path', dest='path', type=str, required=True)
 
@@ -35,6 +38,21 @@ def main():
 
         for entry in db_cursor.execute('SELECT * FROM worker'):
             print(entry)
+
+
+def main():
+    read_track_file()
+
+
+def read_track_file():
+    try:
+        with open(FULL_FILE_TRACK_PATH, 'r', encoding='ANSI') as file:
+            for row in range(10):
+                print(file.readline().split("<SEP>"))
+    except FileNotFoundError:
+        print("Nie ma takiego pliku.")
+    except UnicodeDecodeError:
+        print("Błąd typu kodowania pliku.")
 
 
 if __name__ == "__main__":
