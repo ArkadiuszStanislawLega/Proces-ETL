@@ -48,7 +48,7 @@ table_sample = f"""
 # region Wiadomości do użytkownika
 FILE_NOT_FOUND_ERROR_MESSAGE = "Nie ma takiego pliku."
 DECODE_ERROR_MESSAGE = "Błąd typu kodowania pliku."
-OPENING_FILE_WAS_SUCCESFULE_MESSAGE = "Próba otwarcia pliku przebiegła pomyślnie. Przetwarzam, proszę czekać ..."
+OPENING_FILE_WAS_SUCCESSFUL_MESSAGE = "Próba otwarcia pliku przebiegła pomyślnie. Przetwarzam, proszę czekać ..."
 # endregion
 # region Polecenia dodawania do bazy danych
 TRACK_INSERT_SQL_COMMAND = f'INSERT INTO {TRACK_TABLE}({TRACK_ID_COLUMN}, {EXECUTION_ID_COLUMN}, {ARTIS_NAME_COLUMN}, {TRACK_TITLE_COLUMN}) VALUES(?, ?, ?, ?)'
@@ -87,7 +87,7 @@ def read_triplets_sample():
             last_item = 0
             start_time = datetime.datetime.now()
             with open(FULL_FILE_TRIPLETS_SAMPLE_PATH, 'r', encoding='ANSI') as file:
-                print(OPENING_FILE_WAS_SUCCESFULE_MESSAGE)
+                print(OPENING_FILE_WAS_SUCCESSFUL_MESSAGE)
                 for i, line in enumerate(file):
                     row = line.split("<SEP>")
                     data_list.append((row[0], row[1], row[2]))
@@ -114,7 +114,7 @@ def read_track_file():
             start_time = datetime.datetime.now()
             last_item = 0
             with open(FULL_FILE_TRACK_PATH, 'r', encoding='ANSI') as file:
-                print(OPENING_FILE_WAS_SUCCESFULE_MESSAGE)
+                print(OPENING_FILE_WAS_SUCCESSFUL_MESSAGE)
                 for i, line in enumerate(file):
                     row = line.split("<SEP>")
                     data_list.append((row[0], row[1], row[2], row[3]))
