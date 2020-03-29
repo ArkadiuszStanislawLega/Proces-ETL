@@ -82,31 +82,34 @@ def main():
 
 
 def find_five_tracks():
-    print("Przeszukuję bazę w celu znalezienia 5 najczęściej odsłuchiwanych utworów. Proszę czekać...")
+    print("Przeszukuję bazę w celu znalezienia 5 najczęściej odsłuchiwanych utworów.\nProszę czekać...")
     start = datetime.datetime.now()
     with connect(DB_PATH) as db_connector:
         db_cursor = db_connector.cursor()
-        cur = db_cursor.execute(FIRST)
+        cur = db_cursor.execute(
+            f"SELECT {TRACK_ID_COLUMN}, COUNT({TRACK_ID_COLUMN}) AS `num` FROM {SAMPLES_TABLE} GROUP BY {TRACK_ID_COLUMN} HAVING `num` > 1 ORDER BY `num` DESC LIMIT 5")
         print_surround(
             f'Czas przeszukiwania bazy danych: {datetime.datetime.now()-start}')
-        print("Zwalniam zasoby.Proszę czekać...")
         rows = cur.fetchall()
         answers = []
         print("Uzupełniam dane o właściwe nazwy. Proszę czekać...")
         for row in rows:
             start = datetime.datetime.now()
             artist = db_cursor.execute(
-                f"SELECT {ARTIS_NAME_COLUMN} FROM {TRACK_TABLE} WHERE {TRACK_ID_COLUMN}=\'{row[0]}\'")
+                f"SELECT {ARTIS_NAME_COLUMN},{TRACK_TITLE_COLUMN} FROM {TRACK_TABLE} WHERE {TRACK_ID_COLUMN}=\'{row[0]}\'")
             end = datetime.datetime.now()
+            row = artist.fetchone()
+            answers.append(
+                f'{row[0]}-{row[1]}, czas wyszukiwania - {end - start}')
 
-            answers.append("{:40}{}".format(artist.fetchone()[0],
-                                            f' czas wyszukiwania - {end - start}'))
+        print(create_track_list(answers))
 
-        full_str = ""
-        for i, item in enumerate(answers):
-            full_str += f'{i+1}. {item}\n'
 
-        print(full_str)
+def create_track_list(list):
+    full_str = ""
+    for i, item in enumerate(list):
+        full_str += f'{i+1}. {item}\n'
+    return full_str
 
 
 def read_triplets_sample():
