@@ -2,7 +2,6 @@ from argparse import ArgumentParser
 from sqlite3 import connect
 from Helpers.printer import SpecialPrinter
 import datetime
-import os
 
 DB_PATH = "etl.db"
 # Katalog z którego ma zostać pobrany plik do dodania
@@ -10,6 +9,9 @@ FILE_PATH = 'F:\\zadanie_python\\'
 
 TRACK_FILE_NAME = 'unique_tracks.txt'
 TRIPLETS_SAMPLE_FILE_NAME = 'triplets_sample_20p.txt'
+
+# Liczba wierszy po dodaniu której zwalniam pamięć
+NUMBER_OF_LINES_AFTER_MEMORY_FREED = 1000
 
 # region Pełne ścieżki plików do dodania
 FULL_FILE_TRACK_PATH = f'{FILE_PATH}{TRACK_FILE_NAME}'
@@ -43,6 +45,15 @@ table_sample = f"""
         {LISTENING_DATE_COLUMN} VARCHAR(20)
     )"""
 # endregion
+# region Wiadomości do użytkownika
+FILE_NOT_FOUND_ERROR_MESSAGE = "Nie ma takiego pliku."
+DECODE_ERROR_MESSAGE = "Błąd typu kodowania pliku."
+OPENING_FILE_WAS_SUCCESFULE_MESSAGE = "Próba otwarcia pliku przebiegła pomyślnie. Przetwarzam, proszę czekać ..."
+# endregion
+# region Polecenia dodawania do bazy danych
+TRACK_INSERT_SQL_COMMAND = f'INSERT INTO {TRACK_TABLE}({TRACK_ID_COLUMN}, {EXECUTION_ID_COLUMN}, {ARTIS_NAME_COLUMN}, {TRACK_TITLE_COLUMN}) VALUES(?, ?, ?, ?)'
+SAMPLES_INSERT_SQL_COMMAND = f'INSERT INTO {SAMPLES_TABLE}({USER_ID_COLUMN}, {TRACK_ID_COLUMN}, {LISTENING_DATE_COLUMN}) VALUES(?, ?, ?)'
+# endregion
 
 
 def tutoria_db():
@@ -71,33 +82,25 @@ def read_triplets_sample():
             f'Dodaje próbki do bazy danych z pliku: {FULL_FILE_TRIPLETS_SAMPLE_PATH}')
         with connect(DB_PATH) as db_connctor:
             db_connctor.execute(table_sample)
-
             db_cursor = db_connctor.cursor()
-            # db_cursor.executemany(insert_stmt, data_to_isert)
-
             data_list = []
-            start_time = datetime.datetime.now()
             last_item = 0
+            start_time = datetime.datetime.now()
             with open(FULL_FILE_TRIPLETS_SAMPLE_PATH, 'r', encoding='ANSI') as file:
-                print(
-                    "Próba otwarcia pliku przebiegła pomyślnie. Przetwarzam, proszę czekać ...")
+                print(OPENING_FILE_WAS_SUCCESFULE_MESSAGE)
                 for i, line in enumerate(file):
-                    try:
-                        row = line.split("<SEP>")
-                        data_list.append((row[0], row[1], row[2]))
-                        if i % 1000 == 0:
-                            db_cursor.executemany(
-                                f'INSERT INTO {SAMPLES_TABLE}({USER_ID_COLUMN}, {TRACK_ID_COLUMN}, {LISTENING_DATE_COLUMN}) VALUES(?, ?, ?)', data_list)
-                            data_list.clear()
-                        last_item = i
-                    except IndexError:
-                        break
-                print_surround(
-                    f'Dadano {last_item} wierszy do bazy danych w czasie {datetime.datetime.now() - start_time}')
+                    row = line.split("<SEP>")
+                    data_list.append((row[0], row[1], row[2]))
+                    if i % NUMBER_OF_LINES_AFTER_MEMORY_FREED == 0:
+                        db_cursor.executemany(
+                            SAMPLES_INSERT_SQL_COMMAND, data_list)
+                        data_list.clear()
+                    last_item = i
+                print_end_adding(last_item, start_time-datetime.datetime.now())
     except FileNotFoundError:
-        print("Nie ma takiego pliku.")
+        print(FILE_NOT_FOUND_ERROR_MESSAGE)
     except UnicodeDecodeError:
-        print("Błąd typu kodowania pliku.")
+        print(DECODE_ERROR_MESSAGE)
 
 
 def read_track_file():
@@ -106,37 +109,34 @@ def read_track_file():
         print(f'Dodaje utwory do bazy danych z pliku: {FULL_FILE_TRACK_PATH}')
         with connect(DB_PATH) as db_connctor:
             db_connctor.execute(table_track)
-
             db_cursor = db_connctor.cursor()
-            # db_cursor.executemany(insert_stmt, data_to_isert)
-
             data_list = []
             start_time = datetime.datetime.now()
             last_item = 0
             with open(FULL_FILE_TRACK_PATH, 'r', encoding='ANSI') as file:
-                print(
-                    "Próba otwarcia pliku przebiegła pomyślnie. Przetwarzam, proszę czekać ...")
+                print(OPENING_FILE_WAS_SUCCESFULE_MESSAGE)
                 for i, line in enumerate(file):
-                    try:
-                        row = line.split("<SEP>")
-                        data_list.append((row[0], row[1], row[2], row[3]))
-                        if i % 1000 == 0:
-                            db_cursor.executemany(
-                                f'INSERT INTO {TRACK_TABLE}({TRACK_ID_COLUMN}, {EXECUTION_ID_COLUMN}, {ARTIS_NAME_COLUMN}, {TRACK_TITLE_COLUMN}) VALUES(?, ?, ?, ?)', data_list)
-                            data_list.clear()
-                        last_item = i
-                    except IndexError:
-                        break
-                print_surround(
-                    f'Dadano {last_item} wierszy do bazy danych w czasie {datetime.datetime.now() - start_time}')
+                    row = line.split("<SEP>")
+                    data_list.append((row[0], row[1], row[2], row[3]))
+                    if i % NUMBER_OF_LINES_AFTER_MEMORY_FREED == 0:
+                        db_cursor.executemany(
+                            TRACK_INSERT_SQL_COMMAND, data_list)
+                        data_list.clear()
+                    last_item = i
+                print_end_adding(last_item, start_time-datetime.datetime.now())
     except FileNotFoundError:
-        print("Nie ma takiego pliku.")
+        print(FILE_NOT_FOUND_ERROR_MESSAGE)
     except UnicodeDecodeError:
-        print("Błąd typu kodowania pliku.")
+        print(DECODE_ERROR_MESSAGE)
 
 
 def print_surround(information: str):
     SpecialPrinter.surrounded_text(information, 80, " ", "-")
+
+
+def print_end_adding(number_of_items: int, finish_time: datetime.datetime):
+    print_surround(
+        f'Dadano {number_of_items} wierszy do bazy danych w czasie {finish_time}')
 
 
 if __name__ == "__main__":
