@@ -71,12 +71,11 @@ def tutoria_db():
 
 def main():
     read_track_file()
-    print('\n\n\n')
     read_triplets_sample()
 
 
 def read_triplets_sample():
-    print_surround("Dodawanie próbek")
+    print("Dodawanie próbek")
     try:
         print(
             f'Dodaje próbki do bazy danych z pliku: {FULL_FILE_TRIPLETS_SAMPLE_PATH}')
@@ -104,7 +103,7 @@ def read_triplets_sample():
 
 
 def read_track_file():
-    print_surround("Dodawanie utworów")
+    print("Dodawanie utworów")
     try:
         print(f'Dodaje utwory do bazy danych z pliku: {FULL_FILE_TRACK_PATH}')
         with connect(DB_PATH) as db_connctor:
