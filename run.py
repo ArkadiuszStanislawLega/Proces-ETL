@@ -3,6 +3,10 @@ from sqlite3 import connect
 from Helpers.printer import SpecialPrinter
 import datetime
 
+THIRD = "SELECT track.artistName, COUNT(sample.trackId) AS `num` FROM `sample` INNER JOIN track ON sample.trackId=track.trackId  GROUP BY sample.trackId HAVING `num` > 1 ORDER BY `num` DESC LIMIT 5 "
+SECOND = "SELECT artistName FROM `track` WHERE executionId = 'SOAUWYT12A81C206F1'"
+FIRST = "SELECT trackId, COUNT(trackId) AS `num` FROM `sample` GROUP BY `trackId` HAVING `num` > 1 ORDER BY `num` DESC LIMIT 5 "
+
 DB_PATH = "etl.db"
 # Katalog z którego ma zostać pobrany plik do dodania
 FILE_PATH = 'F:\\zadanie_python\\'
@@ -12,6 +16,8 @@ TRIPLETS_SAMPLE_FILE_NAME = 'triplets_sample_20p.txt'
 
 # Liczba wierszy po dodaniu której zwalniam pamięć
 NUMBER_OF_LINES_AFTER_MEMORY_FREED = 1000
+# Separator danych który oddziela dane w wierszu pliku
+SEPARATOR_SIGHT = "<SEP>"
 
 # region Pełne ścieżki plików do dodania
 FULL_FILE_TRACK_PATH = f'{FILE_PATH}{TRACK_FILE_NAME}'
@@ -40,7 +46,7 @@ table_track = f"""
 
 table_sample = f"""
     CREATE TABLE IF NOT EXISTS {SAMPLES_TABLE}(
-        {USER_ID_COLUMN} VARCHAR(30),
+        {USER_ID_COLUMN} VARCHAR(20),
         {TRACK_ID_COLUMN} VARCHAR(20),
         {LISTENING_DATE_COLUMN} VARCHAR(20)
     )"""
@@ -51,7 +57,7 @@ DECODE_ERROR_MESSAGE = "Błąd typu kodowania pliku."
 OPENING_FILE_WAS_SUCCESSFUL_MESSAGE = "Próba otwarcia pliku przebiegła pomyślnie. Przetwarzam, proszę czekać ..."
 # endregion
 # region Polecenia dodawania do bazy danych
-TRACK_INSERT_SQL_COMMAND = f'INSERT INTO {TRACK_TABLE}({TRACK_ID_COLUMN}, {EXECUTION_ID_COLUMN}, {ARTIS_NAME_COLUMN}, {TRACK_TITLE_COLUMN}) VALUES(?, ?, ?, ?)'
+TRACK_INSERT_SQL_COMMAND = f'INSERT INTO {TRACK_TABLE}({EXECUTION_ID_COLUMN}, {TRACK_ID_COLUMN}, {ARTIS_NAME_COLUMN}, {TRACK_TITLE_COLUMN}) VALUES(?, ?, ?, ?)'
 SAMPLES_INSERT_SQL_COMMAND = f'INSERT INTO {SAMPLES_TABLE}({USER_ID_COLUMN}, {TRACK_ID_COLUMN}, {LISTENING_DATE_COLUMN}) VALUES(?, ?, ?)'
 # endregion
 
@@ -70,8 +76,37 @@ def tutoria_db():
 
 
 def main():
-    read_track_file()
-    read_triplets_sample()
+    # read_track_file()
+    # read_triplets_sample()
+    find_five_tracks()
+
+
+def find_five_tracks():
+    print("Przeszukuję bazę w celu znalezienia 5 najczęściej odsłuchiwanych utworów. Proszę czekać...")
+    start = datetime.datetime.now()
+    with connect(DB_PATH) as db_connector:
+        db_cursor = db_connector.cursor()
+        cur = db_cursor.execute(FIRST)
+        print_surround(
+            f'Czas przeszukiwania bazy danych: {datetime.datetime.now()-start}')
+        print("Zwalniam zasoby.Proszę czekać...")
+        rows = cur.fetchall()
+        answers = []
+        print("Uzupełniam dane o właściwe nazwy. Proszę czekać...")
+        for row in rows:
+            start = datetime.datetime.now()
+            artist = db_cursor.execute(
+                f"SELECT {ARTIS_NAME_COLUMN} FROM {TRACK_TABLE} WHERE {TRACK_ID_COLUMN}=\'{row[0]}\'")
+            end = datetime.datetime.now()
+
+            answers.append("{:40}{}".format(artist.fetchone()[0],
+                                            f' czas wyszukiwania - {end - start}'))
+
+        full_str = ""
+        for i, item in enumerate(answers):
+            full_str += f'{i+1}. {item}\n'
+
+        print(full_str)
 
 
 def read_triplets_sample():
@@ -88,7 +123,7 @@ def read_triplets_sample():
             with open(FULL_FILE_TRIPLETS_SAMPLE_PATH, 'r', encoding='ANSI') as file:
                 print(OPENING_FILE_WAS_SUCCESSFUL_MESSAGE)
                 for i, line in enumerate(file):
-                    row = line.split("<SEP>")
+                    row = line.split(SEPARATOR_SIGHT)
                     data_list.append((row[0], row[1], row[2]))
                     if i % NUMBER_OF_LINES_AFTER_MEMORY_FREED == 0:
                         db_cursor.executemany(
@@ -115,7 +150,7 @@ def read_track_file():
             with open(FULL_FILE_TRACK_PATH, 'r', encoding='ANSI') as file:
                 print(OPENING_FILE_WAS_SUCCESSFUL_MESSAGE)
                 for i, line in enumerate(file):
-                    row = line.split("<SEP>")
+                    row = line.split(SEPARATOR_SIGHT)
                     data_list.append((row[0], row[1], row[2], row[3]))
                     if i % NUMBER_OF_LINES_AFTER_MEMORY_FREED == 0:
                         db_cursor.executemany(
