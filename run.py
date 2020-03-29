@@ -96,7 +96,7 @@ def read_triplets_sample():
                             SAMPLES_INSERT_SQL_COMMAND, data_list)
                         data_list.clear()
                     last_item = i
-                print_end_adding(last_item, start_time-datetime.datetime.now())
+                print_end_adding(last_item, datetime.datetime.now()-start_time)
     except FileNotFoundError:
         print(FILE_NOT_FOUND_ERROR_MESSAGE)
     except UnicodeDecodeError:
@@ -123,7 +123,7 @@ def read_track_file():
                             TRACK_INSERT_SQL_COMMAND, data_list)
                         data_list.clear()
                     last_item = i
-                print_end_adding(last_item, start_time-datetime.datetime.now())
+                print_end_adding(last_item, datetime.datetime.now()-start_time)
     except FileNotFoundError:
         print(FILE_NOT_FOUND_ERROR_MESSAGE)
     except UnicodeDecodeError:
