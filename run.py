@@ -1,24 +1,9 @@
 from argparse import ArgumentParser
 from sqlite3 import connect
+import datetime
+import os
 from Models.track import Track
 from Models.sample import Sample
-
-worker_tablse_stmt = """
-    CREATE TABLE IF NOT EXISTS track(
-        userId VARCHAR(30),
-        trackId VARCHAR(20),
-        listeningDate VARCHAR(20)
-    )"""
-
-insert_stmt = 'INSERT INTO worker(name, salary) VALUES(?,?)'
-data_to_isert = [
-    ('name1', 100),
-    ('name2', 200),
-    ('name3', 300),
-    ('name4', 400),
-    ('name5', 500),
-    ('name6', 600)
-]
 
 DB_PATH = "etl.db"
 FILE_PATH = 'F:\\zadanie_python\\'
@@ -29,6 +14,31 @@ TRIPLETS_SAMPLE_FILE_NAME = 'triplets_sample_20p.txt'
 FULL_FILE_TRACK_PATH = f'{FILE_PATH}{TRACK_FILE_NAME}'
 FULL_FILE_TRIPLETS_SAMPLE_PATH = f'{FILE_PATH}{TRIPLETS_SAMPLE_FILE_NAME}'
 
+TRACK_TABLE = "track"
+SAMPLES_TABLE = "sample"
+
+ARTIS_NAME_COLUMN = "artistName"
+EXECUTION_ID_COLUMN = "executionId"
+LISTENING_DATE_COLUMN = "listeningDate"
+TRACK_ID_COLUMN = "trackId"
+TRACK_TITLE_COLUMN = "title"
+USER_ID_COLUMN = "userId"
+
+table_track = f"""
+    CREATE TABLE IF NOT EXISTS {TRACK_TABLE}(
+        {TRACK_ID_COLUMN} VARCHAR(20),
+        {EXECUTION_ID_COLUMN} VARCHAR(20),
+        {ARTIS_NAME_COLUMN} VARCHAR(20),
+        {TRACK_TITLE_COLUMN} VARCHAR(20)
+    )"""
+
+table_sample = f"""
+    CREATE TABLE IF NOT EXISTS {SAMPLES_TABLE}(
+        {USER_ID_COLUMN} VARCHAR(30),
+        {TRACK_ID_COLUMN} VARCHAR(20),
+        {LISTENING_DATE_COLUMN} VARCHAR(20)
+    )"""
+
 
 def tutoria_db():
     parser = ArgumentParser(description='This is an example of sql API')
@@ -37,43 +47,43 @@ def tutoria_db():
     args = parser.parse_args()
 
     with connect(DB_PATH) as db_connctor:
-        db_connctor.execute(worker_tablse_stmt)
+        # db_connctor.execute(worker_tablse_stmt)
 
         db_cursor = db_connctor.cursor()
         #db_cursor.executemany(insert_stmt, data_to_isert)
 
-        data_list = []
-        with open(FULL_FILE_TRIPLETS_SAMPLE_PATH, 'r', encoding='ANSI') as file:
-            for i, line in enumerate(file):
-                try:
-                    row = line.split("<SEP>")
-                    data_list.append((row[0], row[1], row[2]))
-                    if i % 100 == 0:
-                        db_cursor.executemany(
-                            'INSERT INTO track(userId, trackId, listeningDate) VALUES(?, ?, ?)', data_list)
-                        data_list.clear()
-                        print(f'{i}. Czyszcze pamięć.')
-                except IndexError:
-                    break
-
 
 def main():
-    tutoria_db()
+    read_track_file()
 
 
 def read_triplets_sample():
-    table = []
     try:
-        with open(FULL_FILE_TRIPLETS_SAMPLE_PATH, 'r', encoding='ANSI') as file:
-            counter = 0
-            for couting in range(200):
-                counter += 1
-                for item in range(counter * 1000):
-                    row = file.readline().split("<SEP>")
-                    sample = Sample(row[0], row[1], row[2])
-                    table.append(sample)
-                print(f'{counter * 1000}')
+        with connect(DB_PATH) as db_connctor:
+            db_connctor.execute(table_sample)
 
+            db_cursor = db_connctor.cursor()
+            #db_cursor.executemany(insert_stmt, data_to_isert)
+
+            data_list = []
+            start_time = datetime.datetime.now()
+            last_item = 0
+            with open(FULL_FILE_TRIPLETS_SAMPLE_PATH, 'r', encoding='ANSI') as file:
+                for i, line in enumerate(file):
+                    try:
+                        row = line.split("<SEP>")
+                        data_list.append((row[0], row[1], row[2]))
+                        if i % 1000 == 0:
+                            db_cursor.executemany(
+                                'INSERT INTO track(userId, trackId, listeningDate) VALUES(?, ?, ?)', data_list)
+                            data_list.clear()
+                            last_item = i
+                            print(".", end="")
+                    except IndexError:
+                        break
+                print()
+                print(
+                    f'Dadano {last_item} wierszy do bazy danych w czasie {datetime.datetime.now() - start_time}')
     except FileNotFoundError:
         print("Nie ma takiego pliku.")
     except UnicodeDecodeError:
@@ -82,19 +92,31 @@ def read_triplets_sample():
 
 def read_track_file():
     try:
-        with open(FULL_FILE_TRACK_PATH, 'r', encoding='ANSI') as file:
-            counter = 0
-            for couting in range(200):
-                counter += 1
-                for item in range(counter * 1000):
+        print(f'Dodaje utwory do bazy danych z pliku: {FULL_FILE_TRACK_PATH}')
+        with connect(DB_PATH) as db_connctor:
+            db_connctor.execute(table_track)
+
+            db_cursor = db_connctor.cursor()
+            #db_cursor.executemany(insert_stmt, data_to_isert)
+
+            data_list = []
+            start_time = datetime.datetime.now()
+            last_item = 0
+            with open(FULL_FILE_TRACK_PATH, 'r', encoding='ANSI') as file:
+                print("Przetwarzam, proszę czekać ...")
+                for i, line in enumerate(file):
                     try:
-                        row = file.readline().split("<SEP>")
-                        track = Track(row[0], row[1], row[2], row[3])
+                        row = line.split("<SEP>")
+                        data_list.append((row[0], row[1], row[2], row[3]))
+                        if i % 1000 == 0:
+                            db_cursor.executemany(
+                                f'INSERT INTO {TRACK_TABLE}({TRACK_ID_COLUMN}, {EXECUTION_ID_COLUMN}, {ARTIS_NAME_COLUMN}, {TRACK_TITLE_COLUMN}) VALUES(?, ?, ?, ?)', data_list)
+                            data_list.clear()
+                            last_item = i
                     except IndexError:
-                        print(len(file.readlines()))
-
-                print(f'{counter * 1000}')
-
+                        break
+                print(
+                    f'Dadano {last_item} wierszy do bazy danych w czasie {datetime.datetime.now() - start_time}')
     except FileNotFoundError:
         print("Nie ma takiego pliku.")
     except UnicodeDecodeError:
