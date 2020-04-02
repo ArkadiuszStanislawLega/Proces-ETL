@@ -3,13 +3,12 @@ from sqlite3 import connect
 from Helpers.printer import SpecialPrinter
 import datetime
 
-THIRD = "SELECT track.artistName, COUNT(sample.trackId) AS `num` FROM `sample` INNER JOIN track ON sample.trackId=track.trackId  GROUP BY sample.trackId HAVING `num` > 1 ORDER BY `num` DESC LIMIT 5 "
-SECOND = "SELECT artistName FROM `track` WHERE executionId = 'SOAUWYT12A81C206F1'"
-FIRST = "SELECT trackId, COUNT(trackId) AS `num` FROM `sample` GROUP BY `trackId` HAVING `num` > 1 ORDER BY `num` DESC LIMIT 5 "
+# Przy użyciu tego polecenia są znacznie wolniej pobierane dane.
+INNER_JOIN = "SELECT track.artistName, COUNT(sample.trackId) AS `num` FROM `sample` INNER JOIN track ON sample.trackId=track.trackId  GROUP BY sample.trackId HAVING `num` > 1 ORDER BY `num` DESC LIMIT 5 "
 
 DB_PATH = "etl.db"
 # Katalog z którego ma zostać pobrany plik do dodania
-FILE_PATH = 'F:\\zadanie_python\\'
+FILE_PATH = 'G:\\zadanie_python\\'
 
 TRACK_FILE_NAME = 'unique_tracks.txt'
 TRIPLETS_SAMPLE_FILE_NAME = 'triplets_sample_20p.txt'
@@ -17,7 +16,7 @@ TRIPLETS_SAMPLE_FILE_NAME = 'triplets_sample_20p.txt'
 # Liczba wierszy po dodaniu której zwalniam pamięć
 NUMBER_OF_LINES_AFTER_MEMORY_FREED = 1000
 # Separator danych który oddziela dane w wierszu pliku
-SEPARATOR_SIGHT = "<SEP>"
+SEPARATOR_CHARACTER = "<SEP>"
 
 # region Pełne ścieżki plików do dodania
 FULL_FILE_TRACK_PATH = f'{FILE_PATH}{TRACK_FILE_NAME}'
@@ -76,43 +75,49 @@ def tutoria_db():
 
 
 def main():
-    # read_track_file()
-    # read_triplets_sample()
+    read_track_file()
+    read_triplets_sample()
     find_five_tracks()
 
 
 def find_five_tracks():
+    """
+    Przeszukuje baze danych w celu znalezienia 5 najczęściej odtwarzanych utworów.
+    """
     print("Przeszukuję bazę w celu znalezienia 5 najczęściej odsłuchiwanych utworów.\nProszę czekać...")
     start = datetime.datetime.now()
     with connect(DB_PATH) as db_connector:
         db_cursor = db_connector.cursor()
-        cur = db_cursor.execute(
+        exucuted_select = db_cursor.execute(
             f"SELECT {TRACK_ID_COLUMN}, COUNT({TRACK_ID_COLUMN}) AS `num` FROM {SAMPLES_TABLE} GROUP BY {TRACK_ID_COLUMN} HAVING `num` > 1 ORDER BY `num` DESC LIMIT 5")
         print_surround(
             f'Czas przeszukiwania bazy danych: {datetime.datetime.now()-start}')
-        rows = cur.fetchall()
-        answers = []
-        print("Uzupełniam dane o właściwe nazwy. Proszę czekać...")
-        for row in rows:
+        fill_data_and_print(exucuted_select.fetchall())
+
+
+def fill_data_and_print(list):
+    print("Uzupełniam dane o właściwe nazwy. Proszę czekać...")
+    with connect(DB_PATH) as db_connector:
+        db_cursor = db_connector.cursor()
+        print(177*"-")
+        print("|%1s| %70s | %70s |  %22s |" %
+              ("Lp.", "Nazwa Artysty", "Tytuł", "Czas pobierania danych"))
+        print(177*"-")
+        for i, row in enumerate(list):
             start = datetime.datetime.now()
-            artist = db_cursor.execute(
+            full_fill_row = db_cursor.execute(
                 f"SELECT {ARTIS_NAME_COLUMN},{TRACK_TITLE_COLUMN} FROM {TRACK_TABLE} WHERE {TRACK_ID_COLUMN}=\'{row[0]}\'")
             end = datetime.datetime.now()
-            row = artist.fetchone()
-            answers.append(
-                f'{row[0]}-{row[1]}, czas wyszukiwania - {end - start}')
-
-        print(create_track_list(answers))
-
-
-def create_track_list(list):
-    full_str = ""
-    for i, item in enumerate(list):
-        full_str += f'{i+1}. {item}\n'
-    return full_str
+            hmm = full_fill_row.fetchone()
+            print("| %1s | %70s | %70s |  %22s |" %
+                  (i+1, hmm[0], hmm[1][:-1], end-start))
+        print(177*"-")
 
 
 def read_triplets_sample():
+    """
+    Pobiera dane z pliku tekstowego triplets_sample_20p.txt do bazy danych.
+    """
     print("Dodawanie próbek")
     try:
         print(
@@ -126,7 +131,7 @@ def read_triplets_sample():
             with open(FULL_FILE_TRIPLETS_SAMPLE_PATH, 'r', encoding='ANSI') as file:
                 print(OPENING_FILE_WAS_SUCCESSFUL_MESSAGE)
                 for i, line in enumerate(file):
-                    row = line.split(SEPARATOR_SIGHT)
+                    row = line.split(SEPARATOR_CHARACTER)
                     data_list.append((row[0], row[1], row[2]))
                     if i % NUMBER_OF_LINES_AFTER_MEMORY_FREED == 0:
                         db_cursor.executemany(
@@ -141,6 +146,9 @@ def read_triplets_sample():
 
 
 def read_track_file():
+    """
+    Pobiera dane z pliku tekstowego unique_tracks.txt do bazy danych.
+    """
     print("Dodawanie utworów")
     try:
         print(f'Dodaje utwory do bazy danych z pliku: {FULL_FILE_TRACK_PATH}')
@@ -153,7 +161,7 @@ def read_track_file():
             with open(FULL_FILE_TRACK_PATH, 'r', encoding='ANSI') as file:
                 print(OPENING_FILE_WAS_SUCCESSFUL_MESSAGE)
                 for i, line in enumerate(file):
-                    row = line.split(SEPARATOR_SIGHT)
+                    row = line.split(SEPARATOR_CHARACTER)
                     data_list.append((row[0], row[1], row[2], row[3]))
                     if i % NUMBER_OF_LINES_AFTER_MEMORY_FREED == 0:
                         db_cursor.executemany(
@@ -168,10 +176,22 @@ def read_track_file():
 
 
 def print_surround(information: str):
+    """
+    Drukuje w konsoli podany w argumencie napis - wyśrodkowany otoczony myślnikami.
+    Arguments:
+        information {str} -- Napis który ma zostać wypisany w konsoli.
+    """
     SpecialPrinter.surrounded_text(information, 80, " ", "-")
 
 
 def print_end_adding(number_of_items: int, finish_time: datetime.datetime):
+    """
+    Drukuje w konsoli efekt dodawania wszystkich wierszy z pliku tekstowego do bazy danych.
+    Podaje ilość wierszy oraz czas w któym zostało wykonane zadanie.
+    Arguments:
+        number_of_items {int} -- ilość wierszy dodana do bazy danych
+        finish_time {datetime.datetime} -- czas w jakim zostały wykonane operacje.
+    """
     print_surround(
         f'Dadano {number_of_items} wierszy do bazy danych w czasie {finish_time}')
 
