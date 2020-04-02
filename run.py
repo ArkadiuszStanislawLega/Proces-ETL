@@ -59,6 +59,22 @@ OPENING_FILE_WAS_SUCCESSFUL_MESSAGE = "Próba otwarcia pliku przebiegła pomyśl
 TRACK_INSERT_SQL_COMMAND = f'INSERT INTO {TRACK_TABLE}({EXECUTION_ID_COLUMN}, {TRACK_ID_COLUMN}, {ARTIS_NAME_COLUMN}, {TRACK_TITLE_COLUMN}) VALUES(?, ?, ?, ?)'
 SAMPLES_INSERT_SQL_COMMAND = f'INSERT INTO {SAMPLES_TABLE}({USER_ID_COLUMN}, {TRACK_ID_COLUMN}, {LISTENING_DATE_COLUMN}) VALUES(?, ?, ?)'
 # endregion
+# region Ustawienia tabel
+CHARACTER_THAT_BUILD_TABLES = "-"
+
+# Jeśli zostanie zmieniona długość ogólna tabel,
+# to należy też zmienić proporcjonalnie:
+# - ARTIST_AND_TITLE_COLUMN_WIDTH
+# - TIME_COUNTER_COLUMN_WIDTH
+# Należy pamiętać że w szerokość kolumny wchodzą znaki pionowe "|"
+# pomiędzy kolumnami, oraz spacja na początku kolumny jak i na końcu.
+MAX_TABLE_WIDTH = 80
+
+# Szerokość kolumny nazwy artysty i tytułu utworu, ma wpływ
+# na długość wyświetlanej nazwy i tytyułu w tabeli.
+ARTIST_AND_TITLE_COLUMN_WIDTH = 25
+TIME_COUNTER_COLUMN_WIDTH = 15
+# endregion
 
 
 def tutoria_db():
@@ -96,22 +112,58 @@ def find_five_tracks():
 
 
 def fill_data_and_print(list):
+    """
+    Uzupełnia dane podane wliście o dane z drugiej tabeli która zawiera nazwy zespołów i tytuły.
+    (To rozwiązanie jest szybsze niż użycie inner join)
+    Następnie drukuje tabele z wynikami i czasami.
+
+    Arguments:
+        list {list} -- lista z kluczami artystów
+    """
     print("Uzupełniam dane o właściwe nazwy. Proszę czekać...")
+
     with connect(DB_PATH) as db_connector:
         db_cursor = db_connector.cursor()
-        print(177*"-")
-        print("|%1s| %70s | %70s |  %22s |" %
-              ("Lp.", "Nazwa Artysty", "Tytuł", "Czas pobierania danych"))
-        print(177*"-")
+
+        # Drukowanie nagłówka tabeli
+        print(MAX_TABLE_WIDTH*"-")
+        print(f"|%1s| %{ARTIST_AND_TITLE_COLUMN_WIDTH}s | %{ARTIST_AND_TITLE_COLUMN_WIDTH}s |  %{TIME_COUNTER_COLUMN_WIDTH}s |" %
+              ("Lp.", "Nazwa Artysty", "Tytuł", "Czas pobrań"))
+        print(MAX_TABLE_WIDTH*CHARACTER_THAT_BUILD_TABLES)
+
+        # Pobieranie z bazy danych kolejnych elemntów z listy i drukowanie ich do konsoli
         for i, row in enumerate(list):
             start = datetime.datetime.now()
             full_fill_row = db_cursor.execute(
                 f"SELECT {ARTIS_NAME_COLUMN},{TRACK_TITLE_COLUMN} FROM {TRACK_TABLE} WHERE {TRACK_ID_COLUMN}=\'{row[0]}\'")
             end = datetime.datetime.now()
-            hmm = full_fill_row.fetchone()
-            print("| %1s | %70s | %70s |  %22s |" %
-                  (i+1, hmm[0], hmm[1][:-1], end-start))
-        print(177*"-")
+
+            values_from_row = full_fill_row.fetchone()
+            title = values_from_row[1][:-1]
+            author = values_from_row[0]
+
+            title = short_string(title)
+            author = short_string(author)
+
+            print(f"| %1s | %{ARTIST_AND_TITLE_COLUMN_WIDTH}s | %{ARTIST_AND_TITLE_COLUMN_WIDTH}s |  %{TIME_COUNTER_COLUMN_WIDTH}s |" %
+                  (i+1, author, title, end-start))
+
+        # Drukowanie końca tabeli
+        print(MAX_TABLE_WIDTH*CHARACTER_THAT_BUILD_TABLES)
+
+
+def short_string(value: str):
+    """
+    Skraca podany w argumencie wyraz do wymiaru podanego w argumencie i dodaje trzy kropki.    
+    Arguments:
+        value {str} -- wyraz do skrócenia
+    Returns:
+        [str] -- podany wyraz w argumencie skrócony do rozmiaru podanego w argumencie
+    """
+    if len(value) > ARTIST_AND_TITLE_COLUMN_WIDTH:
+        value = value[0:ARTIST_AND_TITLE_COLUMN_WIDTH-3:]
+        value += "..."
+    return value
 
 
 def read_triplets_sample():
@@ -181,7 +233,8 @@ def print_surround(information: str):
     Arguments:
         information {str} -- Napis który ma zostać wypisany w konsoli.
     """
-    SpecialPrinter.surrounded_text(information, 80, " ", "-")
+    SpecialPrinter.surrounded_text(
+        information, MAX_TABLE_WIDTH, " ", CHARACTER_THAT_BUILD_TABLES)
 
 
 def print_end_adding(number_of_items: int, finish_time: datetime.datetime):
