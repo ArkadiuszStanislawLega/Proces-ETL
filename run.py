@@ -3,38 +3,53 @@ from sqlite3 import connect
 from Helpers.printer import SpecialPrinter
 import datetime
 
-# Przy użyciu tego polecenia są znacznie wolniej pobierane dane.
-INNER_JOIN = "SELECT track.artistName, COUNT(sample.trackId) AS `num` FROM `sample` INNER JOIN track ON sample.trackId=track.trackId  GROUP BY sample.trackId HAVING `num` > 1 ORDER BY `num` DESC LIMIT 5 "
+parser = ArgumentParser(
+    description='W aplikacji nazwy plików tekstowych z których mają być pobrane dane do bazy danych są już ustawione, należy tylko podać miejsce w którym się znajdują oraz nazwę bazy danych.')
+parser.add_argument('--path',
+                    dest='path',
+                    type=str,
+                    required=True,
+                    help='Wyznacza miejsce z którego mają być pobrane pliki. Musi zostać zakończone podwójnym znakiem\'\\\' np. --path=\"C:\\Pliki do pobrania\\\\\"')
 
-DB_PATH = "etl.db"
+parser.add_argument('--db',
+                    dest='db',
+                    type=str,
+                    required=True,
+                    help='Nazwa pliku z bazą danych jaka ma zostać utworzona np. --db=\"baza.db\"')
+
+args = parser.parse_args()
+
+# Baza danych do której mają zotać zapisane dane
+db_path = args.db
 # Katalog z którego ma zostać pobrany plik do dodania
-FILE_PATH = 'G:\\zadanie_python\\'
+file_path = args.path
 
+# Nazwy plików  z których są pobierane dane
 TRACK_FILE_NAME = 'unique_tracks.txt'
 TRIPLETS_SAMPLE_FILE_NAME = 'triplets_sample_20p.txt'
+
+# Pełne ścieżki plików do dodania
+FULL_FILE_TRACK_PATH = f'{file_path}{TRACK_FILE_NAME}'
+FULL_FILE_TRIPLETS_SAMPLE_PATH = f'{file_path}{TRIPLETS_SAMPLE_FILE_NAME}'
 
 # Liczba wierszy po dodaniu której zwalniam pamięć
 NUMBER_OF_LINES_AFTER_MEMORY_FREED = 1000
 # Separator danych który oddziela dane w wierszu pliku
 SEPARATOR_CHARACTER = "<SEP>"
 
-# region Pełne ścieżki plików do dodania
-FULL_FILE_TRACK_PATH = f'{FILE_PATH}{TRACK_FILE_NAME}'
-FULL_FILE_TRIPLETS_SAMPLE_PATH = f'{FILE_PATH}{TRIPLETS_SAMPLE_FILE_NAME}'
-# endregion
-# region Nazwy tabel
+# Nazwy tabel
 TRACK_TABLE = "track"
 SAMPLES_TABLE = "sample"
-# endregion
-# region Nazwy kolumn w tabelach
+
+# Nazwy kolumn w tabelach
 ARTIS_NAME_COLUMN = "artistName"
 EXECUTION_ID_COLUMN = "executionId"
 LISTENING_DATE_COLUMN = "listeningDate"
 TRACK_ID_COLUMN = "trackId"
 TRACK_TITLE_COLUMN = "title"
 USER_ID_COLUMN = "userId"
-# endregion
-# region Polecenia tworzenia tabel
+
+# Polecenia tworzenia tabel
 table_track = f"""
     CREATE TABLE IF NOT EXISTS {TRACK_TABLE}(
         {TRACK_ID_COLUMN} VARCHAR(20),
@@ -49,17 +64,18 @@ table_sample = f"""
         {TRACK_ID_COLUMN} VARCHAR(20),
         {LISTENING_DATE_COLUMN} VARCHAR(20)
     )"""
-# endregion
-# region Wiadomości do użytkownika
+
+# Wiadomości do użytkownika
 FILE_NOT_FOUND_ERROR_MESSAGE = "Nie ma takiego pliku."
 DECODE_ERROR_MESSAGE = "Błąd typu kodowania pliku."
 OPENING_FILE_WAS_SUCCESSFUL_MESSAGE = "Próba otwarcia pliku przebiegła pomyślnie. Przetwarzam, proszę czekać ..."
-# endregion
-# region Polecenia dodawania do bazy danych
+
+# Polecenia bazy danych
 TRACK_INSERT_SQL_COMMAND = f'INSERT INTO {TRACK_TABLE}({EXECUTION_ID_COLUMN}, {TRACK_ID_COLUMN}, {ARTIS_NAME_COLUMN}, {TRACK_TITLE_COLUMN}) VALUES(?, ?, ?, ?)'
 SAMPLES_INSERT_SQL_COMMAND = f'INSERT INTO {SAMPLES_TABLE}({USER_ID_COLUMN}, {TRACK_ID_COLUMN}, {LISTENING_DATE_COLUMN}) VALUES(?, ?, ?)'
-# endregion
-# region Ustawienia tabel
+SELECT_ARTIST_MOST_OFTEN_LISTENED = f"SELECT {TRACK_TABLE}.{ARTIS_NAME_COLUMN}, COUNT({SAMPLES_TABLE}.{TRACK_ID_COLUMN}) AS `num` FROM {SAMPLES_TABLE} INNER JOIN {TRACK_TABLE} ON {SAMPLES_TABLE}.{TRACK_ID_COLUMN}={TRACK_TABLE}.{TRACK_ID_COLUMN}  GROUP BY {SAMPLES_TABLE}.{TRACK_ID_COLUMN} HAVING `num` > 1 ORDER BY `num` DESC LIMIT 1 "
+SELECT_FIVE_MOST_LISTENED_SONGS = f"SELECT {TRACK_ID_COLUMN}, COUNT({TRACK_ID_COLUMN}) AS `num` FROM {SAMPLES_TABLE} GROUP BY {TRACK_ID_COLUMN} HAVING `num` > 1 ORDER BY `num` DESC LIMIT 5"
+# Ustawienia tabel
 CHARACTER_THAT_BUILD_TABLES = "-"
 
 # Jeśli zostanie zmieniona długość ogólna tabel,
@@ -74,41 +90,47 @@ MAX_TABLE_WIDTH = 80
 # na długość wyświetlanej nazwy i tytyułu w tabeli.
 ARTIST_AND_TITLE_COLUMN_WIDTH = 25
 TIME_COUNTER_COLUMN_WIDTH = 15
-# endregion
-
-
-def tutoria_db():
-    parser = ArgumentParser(description='This is an example of sql API')
-    parser.add_argument('--path', dest='path', type=str, required=True)
-
-    args = parser.parse_args()
-
-    with connect(DB_PATH) as db_connctor:
-        # db_connctor.execute(worker_tablse_stmt)
-
-        db_cursor = db_connctor.cursor()
-        # db_cursor.executemany(insert_stmt, data_to_isert)
 
 
 def main():
     read_track_file()
     read_triplets_sample()
+    find_best_artist()
     find_five_tracks()
+
+
+def execute_select(select_command: str):
+    """
+    Wykonuje zapytanie do bazy podane w argumencie.
+    Arguments:
+        select_command {str} -- zapytanie do bazy danych 
+    """
+    start = datetime.datetime.now()
+    with connect(db_path) as db_connector:
+        db_cursor = db_connector.cursor()
+        exucuted_select = db_cursor.execute(select_command)
+        print_surround(f'Czas przeszukiwania bazy danych: {datetime.datetime.now()-start}')
+
+        return exucuted_select.fetchall()
+
+
+def find_best_artist():
+    """
+    Przeszukuje bazę danych w celu znalezienia najczęściej odsłuchiwanego autora.
+    Używa polecenia SQL w którym jest zawarty INNER JOIN - przez co wolniej pracuje.
+    """
+
+    print("Przeszykuję bazę danych w celu odnalezienia autora z największą liczbą odsłuchań.\nUżyłem do tego polecenia \"INNER JOIN\" do następnych już nie, żeby pokazać różnicę\nw szybkości wyszukiwania. Czas wyszukiwania może zająć około 6min.\nProszę czekać...")
+    executed = execute_select(SELECT_ARTIST_MOST_OFTEN_LISTENED)
+    print(f'Autor z największą liczbą odsłuchań: {executed[0][0]}, ilość dosłuchań: {executed[0][1]}')
 
 
 def find_five_tracks():
     """
     Przeszukuje baze danych w celu znalezienia 5 najczęściej odtwarzanych utworów.
     """
-    print("Przeszukuję bazę w celu znalezienia 5 najczęściej odsłuchiwanych utworów.\nProszę czekać...")
-    start = datetime.datetime.now()
-    with connect(DB_PATH) as db_connector:
-        db_cursor = db_connector.cursor()
-        exucuted_select = db_cursor.execute(
-            f"SELECT {TRACK_ID_COLUMN}, COUNT({TRACK_ID_COLUMN}) AS `num` FROM {SAMPLES_TABLE} GROUP BY {TRACK_ID_COLUMN} HAVING `num` > 1 ORDER BY `num` DESC LIMIT 5")
-        print_surround(
-            f'Czas przeszukiwania bazy danych: {datetime.datetime.now()-start}')
-        fill_data_and_print(exucuted_select.fetchall())
+    print("Przeszukuję bazę w celu znalezienia 5 najczęściej odsłuchiwanych utworów.\nCzas wyszukiwania może zająć od ok. 30s nawet do 2min w zależności od sprzętu.\nProszę czekać...")
+    fill_data_and_print(execute_select(SELECT_FIVE_MOST_LISTENED_SONGS))
 
 
 def fill_data_and_print(list):
@@ -122,31 +144,28 @@ def fill_data_and_print(list):
     """
     print("Uzupełniam dane o właściwe nazwy. Proszę czekać...")
 
-    with connect(DB_PATH) as db_connector:
+    with connect(db_path) as db_connector:
         db_cursor = db_connector.cursor()
 
         # Drukowanie nagłówka tabeli
         print(MAX_TABLE_WIDTH*"-")
-        print(f"|%1s| %{ARTIST_AND_TITLE_COLUMN_WIDTH}s | %{ARTIST_AND_TITLE_COLUMN_WIDTH}s |  %{TIME_COUNTER_COLUMN_WIDTH}s |" %
-              ("Lp.", "Nazwa Artysty", "Tytuł", "Czas pobrań"))
+        print(f"|%1s| %{ARTIST_AND_TITLE_COLUMN_WIDTH}s | %{ARTIST_AND_TITLE_COLUMN_WIDTH}s |  %{TIME_COUNTER_COLUMN_WIDTH}s |" % ("Lp.", "Nazwa Artysty", "Tytuł", "Czas pobrań"))
         print(MAX_TABLE_WIDTH*CHARACTER_THAT_BUILD_TABLES)
 
         # Pobieranie z bazy danych kolejnych elemntów z listy i drukowanie ich do konsoli
         for i, row in enumerate(list):
             start = datetime.datetime.now()
-            full_fill_row = db_cursor.execute(
-                f"SELECT {ARTIS_NAME_COLUMN},{TRACK_TITLE_COLUMN} FROM {TRACK_TABLE} WHERE {TRACK_ID_COLUMN}=\'{row[0]}\'")
+            full_fill_row = db_cursor.execute(f"SELECT {ARTIS_NAME_COLUMN},{TRACK_TITLE_COLUMN} FROM {TRACK_TABLE} WHERE {TRACK_ID_COLUMN}=\'{row[0]}\'")
             end = datetime.datetime.now()
 
             values_from_row = full_fill_row.fetchone()
-            title = values_from_row[1][:-1]
-            author = values_from_row[0]
 
-            title = short_string(title)
-            author = short_string(author)
+            title = short_string(values_from_row[1][:-1])
+            author = short_string(values_from_row[0])
 
-            print(f"| %1s | %{ARTIST_AND_TITLE_COLUMN_WIDTH}s | %{ARTIST_AND_TITLE_COLUMN_WIDTH}s |  %{TIME_COUNTER_COLUMN_WIDTH}s |" %
-                  (i+1, author, title, end-start))
+            elapsed_time = end-start
+
+            print(f"| %1s | %{ARTIST_AND_TITLE_COLUMN_WIDTH}s | %{ARTIST_AND_TITLE_COLUMN_WIDTH}s |  %{TIME_COUNTER_COLUMN_WIDTH}s |" % (i+1, author, title, elapsed_time))
 
         # Drukowanie końca tabeli
         print(MAX_TABLE_WIDTH*CHARACTER_THAT_BUILD_TABLES)
@@ -174,7 +193,7 @@ def read_triplets_sample():
     try:
         print(
             f'Dodaje próbki do bazy danych z pliku: {FULL_FILE_TRIPLETS_SAMPLE_PATH}')
-        with connect(DB_PATH) as db_connctor:
+        with connect(db_path) as db_connctor:
             db_connctor.execute(table_sample)
             db_cursor = db_connctor.cursor()
             data_list = []
@@ -182,15 +201,19 @@ def read_triplets_sample():
             start_time = datetime.datetime.now()
             with open(FULL_FILE_TRIPLETS_SAMPLE_PATH, 'r', encoding='ANSI') as file:
                 print(OPENING_FILE_WAS_SUCCESSFUL_MESSAGE)
+
                 for i, line in enumerate(file):
                     row = line.split(SEPARATOR_CHARACTER)
                     data_list.append((row[0], row[1], row[2]))
+
                     if i % NUMBER_OF_LINES_AFTER_MEMORY_FREED == 0:
-                        db_cursor.executemany(
-                            SAMPLES_INSERT_SQL_COMMAND, data_list)
+                        db_cursor.executemany(SAMPLES_INSERT_SQL_COMMAND, data_list)
                         data_list.clear()
-                    last_item = i
+
+                    last_item += 1
+
                 print_end_adding(last_item, datetime.datetime.now()-start_time)
+
     except FileNotFoundError:
         print(FILE_NOT_FOUND_ERROR_MESSAGE)
     except UnicodeDecodeError:
@@ -204,23 +227,28 @@ def read_track_file():
     print("Dodawanie utworów")
     try:
         print(f'Dodaje utwory do bazy danych z pliku: {FULL_FILE_TRACK_PATH}')
-        with connect(DB_PATH) as db_connctor:
+        with connect(db_path) as db_connctor:
             db_connctor.execute(table_track)
             db_cursor = db_connctor.cursor()
             data_list = []
             start_time = datetime.datetime.now()
             last_item = 0
+
             with open(FULL_FILE_TRACK_PATH, 'r', encoding='ANSI') as file:
                 print(OPENING_FILE_WAS_SUCCESSFUL_MESSAGE)
+
                 for i, line in enumerate(file):
                     row = line.split(SEPARATOR_CHARACTER)
                     data_list.append((row[0], row[1], row[2], row[3]))
+
                     if i % NUMBER_OF_LINES_AFTER_MEMORY_FREED == 0:
-                        db_cursor.executemany(
-                            TRACK_INSERT_SQL_COMMAND, data_list)
+                        db_cursor.executemany(TRACK_INSERT_SQL_COMMAND, data_list)
                         data_list.clear()
-                    last_item = i
+
+                    last_item += 1
+
                 print_end_adding(last_item, datetime.datetime.now()-start_time)
+
     except FileNotFoundError:
         print(FILE_NOT_FOUND_ERROR_MESSAGE)
     except UnicodeDecodeError:
